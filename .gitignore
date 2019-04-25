@@ -1,4 +1,4 @@
-host.key
-host.key.pub
+*.key
+*.key.pub
 .idea/
 __pycache__/
