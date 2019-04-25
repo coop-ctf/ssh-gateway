@@ -1,58 +1,68 @@
+import logging
 import socket
 import sys
 import threading
 import traceback
-from multiprocessing.dummy import Pool as ThreadPool
+import warnings
 from time import sleep
 
 import paramiko
+from cryptography.utils import CryptographyDeprecationWarning
 
 from gateway.server import GatewayServer
 
-pool = ThreadPool(4)
+logging.basicConfig(format='%(asctime)s - [%(levelname)s] %(message)s')
+logger = logging.getLogger("gateway")
+logger.setLevel(logging.DEBUG)
+
+warnings.filterwarnings(
+    action='ignore',
+    category=CryptographyDeprecationWarning
+)
 
 
 class ConnectionThread(threading.Thread):
-    def __init__(self, transport: paramiko.Transport, server: GatewayServer):
+    def __init__(self, client, transport: paramiko.Transport, server: GatewayServer):
         super().__init__()
+        self.client = client
         self.server = server
         self.transport = transport
+        self.channel = None
 
     def run(self):
-        chan: paramiko.Channel = self.transport.accept(20)
-        print("Authenticated!")
+        self.channel: paramiko.Channel = self.transport.accept(20)
         self.server.event.wait(10)
         if not self.server.event.is_set():
-            print("*** Client never requested a shell, exiting")
-            sys.exit(1)
-
-        chan.send("Preparing resources...\r\n")
-        sleep(5)
-        try:
-            backend = create_proxy_to_backend_and_forward(chan)
-        except Exception:
-            traceback.print_exc()
-            chan.send("*********\r\n"
-                      "  Could not create connection due to a backend error.\r\n"
-                      "  Please tell the event organizers!\r\n"
-                      "*********\r\n")
-            chan.close()
+            logger.debug("Client %s never requested a shell, closing", id(self.client))
+            self.channel.close()
             self.transport.close()
             return
 
-        print("Listening from client")
-        while not chan.closed and not backend.closed:
-            recv = chan.recv(1024)
-            if not backend.closed:
+        self.channel.send("Preparing resources...\r\n")
+        sleep(5)
+        try:
+            backend = create_proxy_to_backend_and_forward(self.channel)
+        except Exception:
+            logger.error("Failed to create connection to backend (proxy) for client %s", id(self.client), exc_info=1)
+            self.channel.send("*********\r\n"
+                              "  Could not create connection due to a backend error.\r\n"
+                              "  Please tell the event organizers!\r\n"
+                              "*********\r\n")
+            self.channel.close()
+            self.transport.close()
+            return
+
+        logger.debug("Listening from client %s", id(self.client))
+        while not self.channel.closed and not backend.closed:
+            try:
+                recv = self.channel.recv(1024)
                 backend.send(recv)
-            else:
+            except Exception:
                 break
 
-        print("Connection closed")
-        if not chan.closed:
-            chan.close()
-        if not backend.closed:
-            backend.close()
+        logger.debug("Connection with %s was closed", id(self.client))
+        self.channel.close()
+        backend.close()
         self.transport.close()
 
 
@@ -66,13 +76,13 @@ def create_proxy_to_backend_and_forward(chan: paramiko.Channel) -> paramiko.Chan
     class ForwardThread(threading.Thread):
         def run(self):
             while not backend.closed:
-                recv = backend.recv(1024)
-                if not chan.closed:
+                try:
+                    recv = backend.recv(1024)
                     chan.send(recv)
-                else:
-                    backend.close()
-                    return
+                except Exception:
+                    break
             chan.close()
+            backend.close()
 
     ForwardThread().start()
     return backend
@@ -86,26 +96,26 @@ def run():
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("", 2200))
     except Exception as e:
-        print(f"*** Socket bind failed: {e}")
+        logger.error("Socket bind failed: %s", e)
         traceback.print_exc()
         sys.exit(1)
 
     try:
         sock.listen(20)
-        print("Listening for connections...")
+        logger.info("Listening for connections...")
     except Exception as e:
-        print(f"*** Socket listen failed: {e}")
+        logger.error("Socket listen failed: %s", e)
         traceback.print_exc()
         sys.exit(1)
 
     while True:
         client, addr = sock.accept()
-        print("Received a connection")
+        logger.debug("Received a connection from %s (id=%s)", addr, id(client))
         transport = paramiko.Transport(client)
         transport.add_server_key(host_key)
-        server = GatewayServer()
+        server = GatewayServer(client)
         transport.start_server(server=server)
-        ConnectionThread(transport, server).start()
+        ConnectionThread(client, transport, server).start()
 
 
 if __name__ == '__main__':
