@@ -2,14 +2,21 @@ import threading
 
 import paramiko
 
+from gateway.ssh import pty
+
 
 def create_proxy_to_backend_and_forward(hostname: str, port: int, username: str, pkey: paramiko.PKey,
-                                        chan: paramiko.Channel) -> paramiko.Channel:
+                                        chan: paramiko.Channel, dimensions: pty.PtyDimensions) -> paramiko.Channel:
     client = paramiko.SSHClient()
     client.load_system_host_keys()
     client.set_missing_host_key_policy(paramiko.WarningPolicy())
     client.connect(hostname=hostname, port=port, username=username, pkey=pkey)
-    backend: paramiko.Channel = client.invoke_shell()
+    backend: paramiko.Channel = client.invoke_shell(
+        width=dimensions.width,
+        height=dimensions.height,
+        width_pixels=dimensions.width_pixels,
+        height_pixels=dimensions.height_pixels
+    )
 
     class ForwardThread(threading.Thread):
         def run(self):
