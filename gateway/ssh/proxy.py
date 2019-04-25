@@ -1,9 +1,6 @@
-import logging
 import threading
 
 import paramiko
-
-logger = logging.getLogger("gateway")
 
 
 def create_proxy_to_backend_and_forward(hostname: str, port: int, username: str, pkey: paramiko.PKey,
