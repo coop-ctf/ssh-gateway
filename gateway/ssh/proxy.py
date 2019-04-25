@@ -1,8 +1,11 @@
+import logging
 import threading
 
 import paramiko
 
 from gateway.ssh import pty
+
+logger = logging.getLogger("gateway.ssh")
 
 
 def create_proxy_to_backend_and_forward(hostname: str, port: int, username: str, pkey: paramiko.PKey,
@@ -26,8 +29,11 @@ def create_proxy_to_backend_and_forward(hostname: str, port: int, username: str,
                     chan.send(recv)
                 except Exception:
                     break
-            chan.close()
-            backend.close()
+            try:
+                chan.close()
+                backend.close()
+            except Exception as e:
+                logger.debug("An error occurred while closing a dead connection: %s", e.__class__.__name__)
 
     ForwardThread().start()
     return backend
