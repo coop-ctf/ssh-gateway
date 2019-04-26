@@ -2,7 +2,7 @@ import logging
 import socket
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Tuple
 
 import paramiko
 
@@ -20,6 +20,7 @@ class ServerConnection:
     backend: paramiko.Channel = None
     last_active: datetime = None
     pty_dimensions: pty.PtyDimensions = None
+    addr: Tuple[str, int] = None
 
     def kill(self):
         logger.debug("Connection with %s is closing", id(self.client))

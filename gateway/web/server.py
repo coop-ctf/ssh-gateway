@@ -24,7 +24,8 @@ class SSHConnectionListRoute:
                 connections.append({
                     "id": id(conn.client),
                     "last_active": datetime.datetime.utcnow().timestamp() - conn.last_active.timestamp(),
-                    "username": conn.server.username
+                    "username": conn.server.username,
+                    "client_addr": f"{conn.addr[0]}:{conn.addr[1]}"
                 })
 
         resp.media = connections

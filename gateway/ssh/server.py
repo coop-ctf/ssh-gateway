@@ -44,7 +44,8 @@ def run_ssh_server(ip_address: str, port: int, host_key_file: str, backend_key_f
         connection = ServerConnection(
             client=client,
             transport=transport,
-            last_active=datetime.utcnow()
+            last_active=datetime.utcnow(),
+            addr=addr
         )
 
         connection.server = GatewayServer(connection)
@@ -132,7 +133,7 @@ class ConnectionThread(threading.Thread):
             logger.error("Failed to create connection to backend (proxy) for client %s", id(self.client), exc_info=1)
             self.connection.channel.send("*********\r\n"
                                          "  Could not create connection due to a backend error.\r\n"
-                                         f"  Please tell the event organizers with this code: {id(self.client)}\r\n"
+                                         f"  Please notify the event organizers with this code: {id(self.client)}\r\n"
                                          "*********\r\n")
             self.connection.kill()
             return
