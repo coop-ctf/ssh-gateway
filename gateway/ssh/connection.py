@@ -39,3 +39,12 @@ class ServerConnection:
         if self.transport and not self.transport.active:
             return False
         return True
+
+    def resize_backend(self):
+        if self.is_alive() and self.backend:
+            self.backend.resize_pty(
+                width=self.pty_dimensions.width,
+                height=self.pty_dimensions.height,
+                width_pixels=self.pty_dimensions.width_pixels,
+                height_pixels=self.pty_dimensions.height_pixels,
+            )

@@ -20,7 +20,8 @@ def create_proxy_to_backend_and_forward(backend_res: BackendResource, connection
         width=connection.pty_dimensions.width,
         height=connection.pty_dimensions.height,
         width_pixels=connection.pty_dimensions.width_pixels,
-        height_pixels=connection.pty_dimensions.height_pixels
+        height_pixels=connection.pty_dimensions.height_pixels,
+        term=connection.pty_dimensions.term
     )
 
     class ForwardThread(threading.Thread):

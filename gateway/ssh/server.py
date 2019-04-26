@@ -82,8 +82,22 @@ class GatewayServer(paramiko.ServerInterface):
     def check_channel_pty_request(
             self, channel, term, width, height, pixelwidth, pixelheight, modes
     ):
-        self.connection.pty_dimensions = pty.PtyDimensions(width=width, height=height,
-                                                           width_pixels=pixelwidth, height_pixels=pixelheight)
+        logger.debug("Client %s is creating PTY with (t=%s,w=%s,h=%s,pw=%s,ph=%s)", id(self.client),
+                     term, width, height, pixelwidth, pixelheight)
+        self.connection.pty_dimensions = pty.PtyDimensions(
+            term=term,
+            width=width, height=height,
+            width_pixels=pixelwidth, height_pixels=pixelheight)
+        return True
+
+    def check_channel_window_change_request(
+            self, channel, width, height, pixelwidth, pixelheight
+    ):
+        self.connection.pty_dimensions.width = width
+        self.connection.pty_dimensions.height = height
+        self.connection.pty_dimensions.width_pixels = pixelwidth
+        self.connection.pty_dimensions.height_pixels = pixelheight
+        self.connection.resize_backend()
         return True
 
 
