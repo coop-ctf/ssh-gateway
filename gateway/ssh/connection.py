@@ -13,13 +13,13 @@ logger = logging.getLogger("gateway.ssh")
 
 @dataclass
 class ServerConnection:
-    client: socket.socket
-    channel: paramiko.Channel
-    transport: paramiko.Transport
-    server: Any
-    backend: paramiko.Channel
-    last_active: datetime
-    pty_dimensions: pty.PtyDimensions
+    client: socket.socket = None
+    channel: paramiko.Channel = None
+    transport: paramiko.Transport = None
+    server: Any = None
+    backend: paramiko.Channel = None
+    last_active: datetime = None
+    pty_dimensions: pty.PtyDimensions = None
 
     def kill(self):
         logger.debug("Connection with %s is closing", id(self.client))

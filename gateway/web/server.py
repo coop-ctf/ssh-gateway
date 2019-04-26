@@ -23,7 +23,8 @@ class SSHConnectionListRoute:
             if conn.is_alive():
                 connections.append({
                     "id": id(conn.client),
-                    "last_active": datetime.datetime.utcnow().timestamp() - conn.last_active.timestamp()
+                    "last_active": datetime.datetime.utcnow().timestamp() - conn.last_active.timestamp(),
+                    "username": conn.server.username
                 })
 
         resp.media = connections

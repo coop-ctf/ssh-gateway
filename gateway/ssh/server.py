@@ -3,11 +3,11 @@ import socket
 import sys
 import threading
 from datetime import datetime
-from time import sleep
 
 import paramiko
 
 from gateway.ssh import pty
+from gateway.ssh.backend import get_pod_backend
 from gateway.ssh.connection import ServerConnection
 from gateway.ssh.proxy import create_proxy_to_backend_and_forward
 
@@ -43,12 +43,8 @@ def run_ssh_server(ip_address: str, port: int, host_key_file: str, backend_key_f
 
         connection = ServerConnection(
             client=client,
-            channel=None,
             transport=transport,
-            server=None,
-            backend=None,
-            last_active=datetime.utcnow(),
-            pty_dimensions=None
+            last_active=datetime.utcnow()
         )
 
         connection.server = GatewayServer(connection)
@@ -98,11 +94,10 @@ class ConnectionThread(threading.Thread):
         self.client = connection.client
         self.server: GatewayServer = connection.server
         self.transport = connection.transport
-        self.channel = None
         self.connection = connection
 
     def run(self):
-        self.channel: paramiko.Channel = self.transport.accept(20)
+        self.connection.channel: paramiko.Channel = self.transport.accept(20)
         self.server.event.wait(10)
         if not self.server.event.is_set():
             logger.debug("Client %s never requested a shell, closing", id(self.client))
@@ -111,39 +106,32 @@ class ConnectionThread(threading.Thread):
 
         connections[id(self.client)] = self.connection
 
-        self.channel.send("Preparing resources...\r\n")
-
-        # TODO: Create pod in Kubernetes
-        sleep(15)
-        pod_hostname = "nice.momoperes.ca"
-        pod_port = 22
-        pod_username = "momo"
-        pod_key = self.backend_key
+        self.connection.channel.send(f"Preparing resources for {self.connection.server.username}...\r\n")
+        backend_res = get_pod_backend(self.connection, self.backend_key)
 
         if not self.connection.is_alive():
             # TODO: Delete pod because it is no longer needed
             return
 
         try:
-            logger.debug("Creating proxy to %s:%s, with username %s (client: %s)", pod_hostname, pod_port, pod_username,
-                         id(self.client))
-            self.connection.backend = create_proxy_to_backend_and_forward(pod_hostname, pod_port, pod_username, pod_key,
-                                                                          self.channel, self.connection.pty_dimensions)
+            logger.debug("Creating proxy to %s:%s, with username %s (client: %s)",
+                         backend_res.ssh_hostname, backend_res.ssh_port, backend_res.ssh_username, id(self.client))
+            self.connection.backend = create_proxy_to_backend_and_forward(backend_res, self.connection)
         except Exception:
             logger.error("Failed to create connection to backend (proxy) for client %s", id(self.client), exc_info=1)
-            self.channel.send("*********\r\n"
-                              "  Could not create connection due to a backend error.\r\n"
-                              f"  Please tell the event organizers with this code: {id(self.client)}\r\n"
-                              "*********\r\n")
+            self.connection.channel.send("*********\r\n"
+                                         "  Could not create connection due to a backend error.\r\n"
+                                         f"  Please tell the event organizers with this code: {id(self.client)}\r\n"
+                                         "*********\r\n")
             self.connection.kill()
             return
 
-        logger.debug("Listening from client %s", id(self.client))
+        logger.debug("Listening from client %s to proxy", id(self.client))
         while self.connection.is_alive():
             try:
-                recv = self.channel.recv(1024)
-                self.connection.last_active = datetime.utcnow()
+                recv = self.connection.channel.recv(1024)
                 self.connection.backend.send(recv)
+                self.connection.last_active = datetime.utcnow()
             except Exception:
                 break
 
