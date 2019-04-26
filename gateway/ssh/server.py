@@ -48,9 +48,12 @@ def run_ssh_server(ip_address: str, port: int, host_key_file: str, backend_key_f
             addr=addr
         )
 
-        connection.server = GatewayServer(connection)
-        transport.start_server(server=connection.server)
-        ConnectionThread(connection, backend_key).start()
+        try:
+            connection.server = GatewayServer(connection)
+            transport.start_server(server=connection.server)
+            ConnectionThread(connection, backend_key).start()
+        except Exception:
+            logger.error("An error occurred while creating a connection to client %s", id(client), exc_info=1)
 
 
 class GatewayServer(paramiko.ServerInterface):
