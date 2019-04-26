@@ -7,7 +7,7 @@ from datetime import datetime
 import paramiko
 
 from gateway.ssh import pty
-from gateway.ssh.backend import get_pod_backend
+from gateway.ssh.backend import get_pod_backend, is_username_known
 from gateway.ssh.connection import ServerConnection
 from gateway.ssh.proxy import create_proxy_to_backend_and_forward
 
@@ -117,6 +117,15 @@ class ConnectionThread(threading.Thread):
             return
 
         connections[id(self.client)] = self.connection
+
+        if not is_username_known(self.connection.server.username):
+            self.connection.channel.send("*********\r\n"
+                                         f"  Unknown team code: {self.connection.server.username}. "
+                                         f"Please use a valid code as a username.\r\n"
+                                         "  Example: ssh teamcode@ssh.coop-ctf.ca\r\n"
+                                         "*********\r\n")
+            self.connection.kill()
+            return
 
         self.connection.channel.send(f"Preparing resources for {self.connection.server.username}...\r\n")
         backend_res = get_pod_backend(self.connection, self.backend_key)
