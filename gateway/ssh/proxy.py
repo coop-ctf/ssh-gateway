@@ -1,6 +1,5 @@
 import logging
 import threading
-import traceback
 
 import paramiko
 
@@ -37,9 +36,8 @@ def create_proxy_to_backend_and_forward(backend_res: BackendResource, connection
                 backend.close()
             except EOFError:
                 pass
-            except Exception as e:
-                logger.debug("An error occurred while closing a dead connection: %s", e.__class__.__name__)
-                traceback.print_exc()
+            except Exception:
+                logger.error("An error occurred while closing a dead connection", exc_info=1)
 
     ForwardThread().start()
     return backend
