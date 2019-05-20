@@ -17,12 +17,12 @@ def connect_to_kubernetes():
     config.load_incluster_config()
     api = client.CoreV1Api()
     container = client.V1Container(
-        name="child_container",
+        name="child-container",
         image="momothereal/ctf-linux-linux-cat",
         image_pull_policy="Never"
     )
     spec = client.V1PodSpec(containers=[container])
-    metadata = client.V1ObjectMeta(name="child_pod")
+    metadata = client.V1ObjectMeta(name="child-pod")
     pod = client.V1Pod(metadata=metadata, spec=spec)
     api.create_namespaced_pod(namespace="default", body=pod)
     # container = client.V1Container(
