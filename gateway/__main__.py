@@ -16,7 +16,15 @@ def connect_to_kubernetes():
     from kubernetes import config, client
     config.load_incluster_config()
     api = client.CoreV1Api()
-    print("Pods", api.list_pod_for_all_namespaces())
+    container = client.V1Container(
+        name="child_container",
+        image="momothereal/ctf-linux-linux-cat",
+        image_pull_policy="Never"
+    )
+    spec = client.V1PodSpec(containers=[container])
+    metadata = client.V1ObjectMeta(name="child_pod")
+    pod = client.V1Pod(metadata=metadata, spec=spec)
+    api.create_namespaced_pod(namespace="default", body=pod)
     # container = client.V1Container(
     #     name="nginx",
     #     image="nginx:1.7.9",

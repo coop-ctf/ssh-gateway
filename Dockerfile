@@ -6,6 +6,10 @@ COPY Pipfile .
 COPY Pipfile.lock .
 COPY gateway/ ./gateway
 
+# Add SSH keys
+COPY host.key .
+COPY backend.key .
+
 RUN pip install pipenv && \
     pipenv sync
 

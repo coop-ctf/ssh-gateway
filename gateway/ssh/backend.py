@@ -26,6 +26,6 @@ def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Backend
         ssh_hostname="nice.momoperes.ca",
         ssh_port=22,
         ssh_username="momo",
-        ssh_key=None
-        # ssh_key=key
+        # ssh_key=None
+        ssh_key=key
     )
