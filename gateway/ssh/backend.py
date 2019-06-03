@@ -19,6 +19,11 @@ def is_username_known(username: str) -> bool:
     return username in ("test1", "test2", "test3")
 
 
+def is_challenge_known(challenge: str) -> bool:
+    # TODO: Check challenge name
+    return challenge in ("CATWALK", "PLAINSIGHT")
+
+
 def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> BackendResource:
     # TODO: Create pod in Kubernetes
     sleep(5)

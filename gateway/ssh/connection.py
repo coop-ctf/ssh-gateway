@@ -21,6 +21,7 @@ class ServerConnection:
     last_active: datetime = None
     pty_dimensions: pty.PtyDimensions = None
     addr: Tuple[str, int] = None
+    challenge: str = None
 
     def kill(self):
         logger.debug("Connection with %s is closing", id(self.client))

@@ -7,7 +7,7 @@ from datetime import datetime
 import paramiko
 
 from gateway.ssh import pty
-from gateway.ssh.backend import get_pod_backend, is_username_known
+from gateway.ssh.backend import get_pod_backend, is_username_known, is_challenge_known
 from gateway.ssh.connection import ServerConnection
 from gateway.ssh.proxy import create_proxy_to_backend_and_forward
 
@@ -60,7 +60,7 @@ class GatewayServer(paramiko.ServerInterface):
 
     def __init__(self, connection: ServerConnection):
         self.client = connection.client
-        self.event = threading.Event()
+        self.wait_for_shell = threading.Event()
         self.connection = connection
         self.username = None
 
@@ -69,7 +69,10 @@ class GatewayServer(paramiko.ServerInterface):
 
     def check_auth_none(self, username):
         logger.debug("Allowing client %s to connect without password for username: %s", id(self.client), username)
-        self.username = username
+        if ":" in username:
+            self.username, self.connection.challenge = username.split(":", 1)
+        else:
+            self.username = username
         return paramiko.AUTH_SUCCESSFUL
 
     def check_channel_request(self, kind, chanid):
@@ -80,7 +83,7 @@ class GatewayServer(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_channel_shell_request(self, channel):
-        self.event.set()
+        self.wait_for_shell.set()
         return True
 
     def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
@@ -113,8 +116,8 @@ class ConnectionThread(threading.Thread):
 
     def run(self):
         self.connection.channel: paramiko.Channel = self.transport.accept(20)
-        self.server.event.wait(10)
-        if not self.server.event.is_set():
+        self.server.wait_for_shell.wait(10)
+        if not self.server.wait_for_shell.is_set():
             logger.debug("Client %s never requested a shell, closing", id(self.client))
             self.connection.kill()
             return
@@ -122,15 +125,42 @@ class ConnectionThread(threading.Thread):
         connections[id(self.client)] = self.connection
 
         if not is_username_known(self.connection.server.username):
+            logger.info("Client %s used an invalid team code, therefore it is being killed.", id(self.client))
             self.connection.channel.send("*********\r\n"
                                          f"  Unknown team code: {self.connection.server.username}. "
-                                         f"Please use a valid code as a username.\r\n"
-                                         "  Example: ssh teamcode@ssh.coop-ctf.ca\r\n"
+                                         f"Please use a valid code as a username, followed by : and the challenge name"
+                                         f".\r\n"
+                                         "  Example: ssh TeamCode:CATLWALK@ssh.coop-ctf.ca\r\n"
                                          "*********\r\n")
             self.connection.kill()
             return
 
-        self.connection.channel.send(f"Preparing resources for {self.connection.server.username}...\r\n")
+        if not self.connection.challenge:
+            logger.info("Client %s did not provide a challenge, therefore it is being killed.", id(self.client))
+            self.connection.channel.send("*********\r\n"
+                                         "No challenge was provided.\r\n"
+                                         "Please set a challenge by appending the username with ':CHALLENGE_NAME'.\r\n"
+                                         f"  Example: ssh {self.connection.server.username}:CATWALK"
+                                         f"@ssh.coop-ctf.ca\r\n"
+                                         "*********\r\n")
+            self.connection.kill()
+            return
+
+        if not is_challenge_known(self.connection.challenge):
+            logger.info("Client %s provided an invalid challenge, therefore it is being killed.", id(self.client))
+            self.connection.channel.send("*********\r\n"
+                                         f"Challenge not found: {self.connection.challenge}.\r\n"
+                                         "Please set a valid challenge by appending the username "
+                                         "with ':CHALLENGE_NAME'.\r\n"
+                                         f"  Example: ssh {self.connection.server.username}:CATWALK"
+                                         f"@ssh.coop-ctf.ca\r\n"
+                                         "*********\r\n")
+            self.connection.kill()
+            return
+
+        self.connection.channel.send(
+            f"Preparing resources for {self.connection.server.username} "
+            f"(challenge: {self.connection.challenge})...\r\n")
         backend_res = get_pod_backend(self.connection, self.backend_key)
 
         if not self.connection.is_alive():

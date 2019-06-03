@@ -31,7 +31,7 @@ def connect_to_kubernetes():
             sleep(0.5)
             status = api.read_namespaced_pod_status(name=pod.metadata.name, namespace=pod.metadata.namespace).status
             if str(status.pod_ip) != "None":
-                logger.info("Pod available at IP %s", pod.status.pod_ip)
+                logger.info("Pod available at IP %s", status.pod_ip)
                 break
     except Exception as e:
         logger.error("Error", exc_info=e)
@@ -71,7 +71,7 @@ if __name__ == '__main__':
         action='ignore',
         category=CryptographyDeprecationWarning
     )
-    connect_to_kubernetes()
+    # connect_to_kubernetes()
     # exit()
     WebServer().start()
     SSHGatewayServer().start()
