@@ -26,12 +26,17 @@ def connect_to_kubernetes():
     metadata = client.V1ObjectMeta(name="child-pod")
     pod = client.V1Pod(metadata=metadata, spec=spec)
     pod = api.create_namespaced_pod(namespace="default", body=pod)
-    while True:
-        sleep(0.5)
-        status = api.read_namespaced_pod_status(name=pod.metadata.name, namespace=pod.metadata.namespace).status
-        if status.pod_ip:
-            logger.info("Pod available at IP %s", pod.status.pod_ip)
-            break
+    try:
+        while True:
+            sleep(0.5)
+            status = api.read_namespaced_pod_status(name=pod.metadata.name, namespace=pod.metadata.namespace).status
+            if status.pod_ip:
+                logger.info("Pod available at IP %s", pod.status.pod_ip)
+                break
+    except Exception as e:
+        logger.error("Error", exc_info=e)
+        while True:
+            sleep(1)
     # container = client.V1Container(
     #     name="nginx",
     #     image="nginx:1.7.9",
