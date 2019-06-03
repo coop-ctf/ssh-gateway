@@ -24,7 +24,8 @@ def connect_to_kubernetes():
     spec = client.V1PodSpec(containers=[container])
     metadata = client.V1ObjectMeta(name="child-pod")
     pod = client.V1Pod(metadata=metadata, spec=spec)
-    api.create_namespaced_pod(namespace="default", body=pod)
+    pod = api.create_namespaced_pod(namespace="default", body=pod)
+    logger.info("Pod available at IP %s", pod.status.pod_ip)
     # container = client.V1Container(
     #     name="nginx",
     #     image="nginx:1.7.9",
