@@ -1,6 +1,7 @@
 import logging
 import threading
 import warnings
+from time import sleep
 
 from cryptography.utils import CryptographyDeprecationWarning
 
@@ -25,7 +26,12 @@ def connect_to_kubernetes():
     metadata = client.V1ObjectMeta(name="child-pod")
     pod = client.V1Pod(metadata=metadata, spec=spec)
     pod = api.create_namespaced_pod(namespace="default", body=pod)
-    logger.info("Pod available at IP %s", pod.status.pod_ip)
+    while True:
+        sleep(0.5)
+        status = api.read_namespaced_pod_status(name=pod.metadata.name, namespace=pod.metadata.namespace).status
+        if status.pod_ip:
+            logger.info("Pod available at IP %s", pod.status.pod_ip)
+            break
     # container = client.V1Container(
     #     name="nginx",
     #     image="nginx:1.7.9",
