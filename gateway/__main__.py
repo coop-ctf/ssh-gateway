@@ -30,7 +30,7 @@ def connect_to_kubernetes():
         while True:
             sleep(0.5)
             status = api.read_namespaced_pod_status(name=pod.metadata.name, namespace=pod.metadata.namespace).status
-            if status.pod_ip:
+            if str(status.pod_ip) != "None":
                 logger.info("Pod available at IP %s", pod.status.pod_ip)
                 break
     except Exception as e:
