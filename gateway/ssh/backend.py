@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from time import sleep
+from typing import Optional
 
 import paramiko
 
+from gateway.ssh import kube
 from gateway.ssh.connection import ServerConnection
 
 
@@ -11,7 +12,7 @@ class BackendResource:
     ssh_username: str
     ssh_hostname: str
     ssh_port: int
-    ssh_key: paramiko.PKey
+    ssh_key: Optional[paramiko.PKey]
 
 
 def is_username_known(username: str) -> bool:
@@ -24,13 +25,31 @@ def is_challenge_known(challenge: str) -> bool:
     return challenge in ("CATWALK", "PLAINSIGHT")
 
 
-def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> BackendResource:
-    # TODO: Create pod in Kubernetes
-    sleep(5)
+def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Optional[BackendResource]:
+    kube_client: kube.KubeClient = kube.KubeClient.INSTANCE
+
+    if not kube_client:
+        # For testing purposes: outside of cluster
+        return BackendResource(
+            ssh_hostname="nice.momoperes.ca",
+            ssh_port=532,
+            ssh_username="momo",
+            ssh_key=None
+        )
+
+    pod = kube_client.create_pod(f"chal-CATWALK-{id(connection.client)}",
+                                 "momothereal/ctf-linux-linux-cat")
+
+    if not pod:
+        return None
+
+    pod_ip = kube_client.wait_until_pod_has_ip(pod, 30.0)
+    if not pod_ip:
+        return None
+
     return BackendResource(
-        ssh_hostname="nice.momoperes.ca",
+        ssh_hostname=pod_ip,
         ssh_port=22,
-        ssh_username="momo",
-        # ssh_key=None
+        ssh_username="guest",
         ssh_key=key
     )

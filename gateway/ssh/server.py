@@ -161,10 +161,20 @@ class ConnectionThread(threading.Thread):
         self.connection.channel.send(
             f"Preparing resources for {self.connection.server.username} "
             f"(challenge: {self.connection.challenge})...\r\n")
+
         backend_res = get_pod_backend(self.connection, self.backend_key)
 
         if not self.connection.is_alive():
             # TODO: Delete pod because it is no longer needed
+            return
+
+        if not backend_res:
+            self.connection.channel.send("*********\r\n"
+                                         "  Our apologies. Your challenge server never came up."
+                                         "  This could be caused by increased load or a backend issue.\r\n"
+                                         f"  Please notify the event organizers with this code: {id(self.client)}\r\n"
+                                         "*********\r\n")
+            self.connection.kill()
             return
 
         try:
