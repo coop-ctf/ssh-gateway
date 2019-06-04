@@ -37,7 +37,7 @@ def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Optiona
             ssh_key=None
         )
 
-    pod = kube_client.create_pod(f"chal-CATWALK-{id(connection.client)}",
+    pod = kube_client.create_pod(f"chal-catwalk-{id(connection.client)}",
                                  "momothereal/ctf-linux-linux-cat")
 
     if not pod:
