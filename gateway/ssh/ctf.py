@@ -3,7 +3,7 @@ This file contains data specifically about the COOP-CTF.
 It should probably be moved to a non-version controlled configuration file later.
 """
 
-teams = (team.lower() for team in (
+teams = tuple(team.lower() for team in (
     "HungryMarauders",
     "Cannibals",
     "StellarExplorers",
