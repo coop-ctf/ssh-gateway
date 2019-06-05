@@ -20,7 +20,7 @@ class KubeClient:
     def get():
         return KubeClient.INSTANCE
 
-    def create_pod(self, name: str, image: str) -> Optional[client.V1Pod]:
+    def create_pod(self, name: str, image: str, team: str, challenge: str) -> Optional[client.V1Pod]:
         try:
             pod = self.api.read_namespaced_pod(name=f"{name}-p", namespace="default")
             if pod:
@@ -32,7 +32,11 @@ class KubeClient:
             container = client.V1Container(
                 name=f"{name}-c",
                 image=image,
-                image_pull_policy="Never"
+                image_pull_policy="Never",
+                env=[
+                    client.V1EnvVar(name="CTF_TEAM", value=team),
+                    client.V1EnvVar(name="CTF_CHALLENGE", value=challenge)
+                ]
             )
             spec = client.V1PodSpec(containers=[container])
             metadata = client.V1ObjectMeta(name=f"{name}-p")

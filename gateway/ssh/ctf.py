@@ -33,3 +33,10 @@ challenge_images = {
     "whereabouts": "momothereal/ctf-linux-linux-find",
     "sweep": "momothereal/ctf-linux-linux-nmap",
 }
+
+
+def capitalize_team_name(team_name: str):
+    for team in teams:
+        if team.lower() == team_name.lower():
+            return team
+    return team_name

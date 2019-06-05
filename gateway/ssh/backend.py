@@ -39,7 +39,7 @@ def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Optiona
         )
 
     pod_name = f"chal-{challenge}-{team_name}"
-    pod = kube_client.create_pod(pod_name, challenge_image)
+    pod = kube_client.create_pod(pod_name, challenge_image, ctf.capitalize_team_name(team_name), challenge.upper())
 
     if not pod:
         return None
