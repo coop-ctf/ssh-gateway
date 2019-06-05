@@ -21,7 +21,12 @@ class KubeClient:
         return KubeClient.INSTANCE
 
     def create_pod(self, name: str, image: str) -> Optional[client.V1Pod]:
-        # todo: first check if there is already a pod with this name. if so, return it instead
+        try:
+            pod = self.api.read_namespaced_pod(name=f"{name}-p", namespace="default")
+            if pod:
+                return pod
+        except:
+            pass
 
         try:
             container = client.V1Container(
