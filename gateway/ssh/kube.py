@@ -1,4 +1,5 @@
 import logging
+import socket
 from datetime import datetime
 from time import sleep
 from typing import Optional
@@ -20,6 +21,8 @@ class KubeClient:
         return KubeClient.INSTANCE
 
     def create_pod(self, name: str, image: str) -> Optional[client.V1Pod]:
+        # todo: first check if there is already a pod with this name. if so, return it instead
+
         try:
             container = client.V1Container(
                 name=f"{name}-c",
@@ -48,6 +51,20 @@ class KubeClient:
         except Exception as e:
             logger.error(f"Error while waiting for pod {pod.metadata.name}", exc_info=e)
             return None
+
+    def wait_until_pod_port_available(self, pod: client.V1Pod, pod_ip: str, port: int, timeout_s: float) -> bool:
+        max_time = datetime.now().timestamp() + timeout_s
+        try:
+            while True:
+                if max_time < datetime.now().timestamp():
+                    return False
+                sleep(0.25)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                if sock.connect_ex((pod_ip, port)) == 0:
+                    return True
+        except Exception as e:
+            logger.error(f"Error while waiting for pod port {pod.metadata.name} -> {port}", exc_info=e)
+            return False
 
 
 def connect_to_kube() -> Optional[KubeClient]:

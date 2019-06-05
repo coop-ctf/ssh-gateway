@@ -3,7 +3,7 @@ from typing import Optional
 
 import paramiko
 
-from gateway.ssh import kube
+from gateway.ssh import kube, ctf
 from gateway.ssh.connection import ServerConnection
 
 
@@ -16,17 +16,18 @@ class BackendResource:
 
 
 def is_username_known(username: str) -> bool:
-    # TODO: Have an external source/DB for team names
-    return username in ("test1", "test2", "test3")
+    return username.lower() in ctf.teams
 
 
 def is_challenge_known(challenge: str) -> bool:
-    # TODO: Check challenge name
-    return challenge in ("CATWALK", "PLAINSIGHT")
+    return challenge.lower() in ctf.challenge_images.keys()
 
 
 def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Optional[BackendResource]:
     kube_client: kube.KubeClient = kube.KubeClient.INSTANCE
+    challenge = connection.challenge.lower()
+    team_name = connection.server.username.lower()
+    challenge_image = ctf.challenge_images[connection.challenge.lower()]
 
     if not kube_client:
         # For testing purposes: outside of cluster
@@ -37,14 +38,17 @@ def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Optiona
             ssh_key=None
         )
 
-    pod = kube_client.create_pod(f"chal-catwalk-{id(connection.client)}",
-                                 "momothereal/ctf-linux-linux-cat")
+    pod_name = f"chal-{challenge}-{team_name}"
+    pod = kube_client.create_pod(pod_name, challenge_image)
 
     if not pod:
         return None
 
     pod_ip = kube_client.wait_until_pod_has_ip(pod, 30.0)
     if not pod_ip:
+        return None
+
+    if not kube_client.wait_until_pod_port_available(pod, pod_ip, 22, 15.0):
         return None
 
     return BackendResource(
