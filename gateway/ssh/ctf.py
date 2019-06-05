@@ -25,7 +25,7 @@ teams = tuple(team.lower() for team in (
 challenge_images = {
     "catwalk": "momothereal/ctf-linux-linux-cat",
     "foreign": "momothereal/ctf-linux-linux-base64",
-    "prithee": "momothereal/ctf-linux-chmod",
+    "prithee": "momothereal/ctf-linux-linux-chmod",
     "glaf": "momothereal/ctf-linux-linux-grep",
     "squeeze": "momothereal/ctf-linux-linux-gunzip",
     "plainsight": "momothereal/ctf-linux-linux-hidden",
