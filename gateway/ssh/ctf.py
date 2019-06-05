@@ -3,7 +3,7 @@ This file contains data specifically about the COOP-CTF.
 It should probably be moved to a non-version controlled configuration file later.
 """
 
-teams = tuple(team.lower() for team in (
+_teams = (
     "HungryMarauders",
     "Cannibals",
     "StellarExplorers",
@@ -20,7 +20,9 @@ teams = tuple(team.lower() for team in (
     "MuddyKings",
     "RuthlessDetectives",
     "CrimsonAstronauts"
-))
+)
+
+teams = tuple(team.lower() for team in _teams)
 
 challenge_images = {
     "catwalk": "momothereal/ctf-linux-linux-cat",
@@ -36,7 +38,7 @@ challenge_images = {
 
 
 def capitalize_team_name(team_name: str):
-    for team in teams:
+    for team in _teams:
         if team.lower() == team_name.lower():
             return team
     return team_name
