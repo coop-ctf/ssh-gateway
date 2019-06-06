@@ -5,6 +5,7 @@ WORKDIR "/opt/gateway"
 COPY Pipfile .
 COPY Pipfile.lock .
 COPY gateway/ ./gateway
+COPY teams.json .
 
 # Add SSH keys
 COPY host.key .
