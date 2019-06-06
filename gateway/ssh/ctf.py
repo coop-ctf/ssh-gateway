@@ -44,9 +44,13 @@ class CTF:
         "glaf": "momothereal/ctf-linux-linux-grep",
         "squeeze": "momothereal/ctf-linux-linux-gunzip",
         "plainsight": "momothereal/ctf-linux-linux-hidden",
-        "soar": "momothereal/ctf-linux-linux-priv-esc",
+        "priv_esc": "momothereal/ctf-linux-linux-priv-esc",
         "whereabouts": "momothereal/ctf-linux-linux-find",
         "sweep": "momothereal/ctf-linux-linux-nmap",
+        "bufferoverflow1": "momothereal/ctf-reverse-c-buffer-overflow-variable",
+        "bufferoverflow2": "momothereal/ctf-reverse-c-buffer-overflow-function",
+        "seestring": "momothereal/ctf-reverse-c-strings",
+        "jackofalltrades": "momothereal/ctf-reverse-py-jack-of-all-trades"
     }
 
     @staticmethod
