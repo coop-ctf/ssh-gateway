@@ -9,6 +9,7 @@ import paramiko
 from gateway.ssh import pty
 from gateway.ssh.backend import get_pod_backend, is_username_known, is_challenge_known
 from gateway.ssh.connection import ServerConnection
+from gateway.ssh.ctf import CTF
 from gateway.ssh.proxy import create_proxy_to_backend_and_forward
 
 logger = logging.getLogger("gateway.ssh")
@@ -65,15 +66,25 @@ class GatewayServer(paramiko.ServerInterface):
         self.username = None
 
     def get_allowed_auths(self, username):
-        return "none"
+        return "password"
 
-    def check_auth_none(self, username):
-        logger.debug("Allowing client %s to connect without password for username: %s", id(self.client), username)
+    def check_auth_password(self, username, password):
         if ":" in username:
             self.username, self.connection.challenge = username.split(":", 1)
         else:
             self.username = username
-        return paramiko.AUTH_SUCCESSFUL
+        logger.debug("Checking password for %s (%s)", username, id(self.client))
+        if CTF.check_password(self.username, password):
+            return paramiko.AUTH_SUCCESSFUL
+        return paramiko.AUTH_FAILED
+
+    # def check_auth_none(self, username):
+    #     logger.debug("Allowing client %s to connect without password for username: %s", id(self.client), username)
+    #     if ":" in username:
+    #         self.username, self.connection.challenge = username.split(":", 1)
+    #     else:
+    #         self.username = username
+    #     return paramiko.AUTH_SUCCESSFUL
 
     def check_channel_request(self, kind, chanid):
         logger.debug("Received channel request of type '%s' from channel %s (client: %s)", kind, chanid,

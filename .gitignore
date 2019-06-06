@@ -2,3 +2,4 @@
 *.key.pub
 .idea/
 __pycache__/
+/teams.json

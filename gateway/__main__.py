@@ -6,6 +6,7 @@ import warnings
 from cryptography.utils import CryptographyDeprecationWarning
 
 from gateway.ssh import kube
+from gateway.ssh.ctf import CTF
 from gateway.ssh.server import run_ssh_server
 from gateway.web.server import run_web_server
 
@@ -73,6 +74,7 @@ if __name__ == '__main__':
         action='ignore',
         category=CryptographyDeprecationWarning
     )
+    CTF.load_teams()
     kube.connect_to_kube()
     WebServer().start()
     SSHGatewayServer().start()
