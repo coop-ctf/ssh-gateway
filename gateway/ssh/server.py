@@ -71,6 +71,7 @@ class GatewayServer(paramiko.ServerInterface):
     def check_auth_password(self, username, password):
         if ":" in username:
             self.username, self.connection.challenge = username.split(":", 1)
+            self.username = CTF.capitalize_team_name(self.username)
         else:
             self.username = username
         logger.debug("Checking password for %s (%s)", username, id(self.client))

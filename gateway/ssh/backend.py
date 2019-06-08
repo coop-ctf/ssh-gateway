@@ -39,7 +39,7 @@ def get_pod_backend(connection: ServerConnection, key: paramiko.PKey) -> Optiona
             ssh_key=None
         )
 
-    pod_name = f"chal-{challenge}-{team_name}"
+    pod_name = "chal-{}-{}".format(challenge.replace("_", ""), team_name)
     pod = kube_client.create_pod(pod_name, challenge_image, CTF.capitalize_team_name(team_name), challenge.upper())
 
     if not pod:
