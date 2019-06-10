@@ -22,9 +22,10 @@ class ServerConnection:
     pty_dimensions: pty.PtyDimensions = None
     addr: Tuple[str, int] = None
     challenge: str = None
+    id: str = None
 
     def kill(self):
-        logger.debug("Connection with %s is closing", id(self.client))
+        logger.debug("Connection with %s is closing", self.id)
 
         if self.backend and not self.backend.closed:
             self.backend.close()

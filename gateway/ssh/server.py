@@ -2,6 +2,7 @@ import logging
 import socket
 import sys
 import threading
+import uuid
 from datetime import datetime
 
 import paramiko
@@ -38,7 +39,8 @@ def run_ssh_server(ip_address: str, port: int, host_key_file: str, backend_key_f
 
     while True:
         client, addr = sock.accept()
-        logger.debug("Received a connection from %s (id=%s)", addr, id(client))
+        client_id = str(uuid.uuid4())
+        logger.debug("Received a connection from %s (id=%s)", addr, client_id)
         transport = paramiko.Transport(client)
         transport.add_server_key(host_key)
 
@@ -46,7 +48,8 @@ def run_ssh_server(ip_address: str, port: int, host_key_file: str, backend_key_f
             client=client,
             transport=transport,
             last_active=datetime.utcnow(),
-            addr=addr
+            addr=addr,
+            id=client_id
         )
 
         try:
@@ -54,7 +57,7 @@ def run_ssh_server(ip_address: str, port: int, host_key_file: str, backend_key_f
             transport.start_server(server=connection.server)
             ConnectionThread(connection, backend_key).start()
         except Exception:
-            logger.error("An error occurred while creating a connection to client %s", id(client), exc_info=1)
+            logger.error("An error occurred while creating a connection to client %s", client_id, exc_info=1)
 
 
 class GatewayServer(paramiko.ServerInterface):
@@ -74,22 +77,14 @@ class GatewayServer(paramiko.ServerInterface):
             self.username = CTF.capitalize_team_name(self.username)
         else:
             self.username = username
-        logger.debug("Checking password for %s (%s)", username, id(self.client))
+        logger.debug("Checking password for %s (%s)", username, self.connection.id)
         if CTF.check_password(self.username, password):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
 
-    # def check_auth_none(self, username):
-    #     logger.debug("Allowing client %s to connect without password for username: %s", id(self.client), username)
-    #     if ":" in username:
-    #         self.username, self.connection.challenge = username.split(":", 1)
-    #     else:
-    #         self.username = username
-    #     return paramiko.AUTH_SUCCESSFUL
-
     def check_channel_request(self, kind, chanid):
         logger.debug("Received channel request of type '%s' from channel %s (client: %s)", kind, chanid,
-                     id(self.client))
+                     self.connection.id)
         if kind == "session":
             return paramiko.OPEN_SUCCEEDED
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
@@ -99,7 +94,7 @@ class GatewayServer(paramiko.ServerInterface):
         return True
 
     def check_channel_pty_request(self, channel, term, width, height, pixelwidth, pixelheight, modes):
-        logger.debug("Client %s is creating PTY with (t=%s,w=%s,h=%s,pw=%s,ph=%s)", id(self.client),
+        logger.debug("Client %s is creating PTY with (t=%s,w=%s,h=%s,pw=%s,ph=%s)", self.connection.id,
                      term, width, height, pixelwidth, pixelheight)
         self.connection.pty_dimensions = pty.PtyDimensions(
             term=term,
@@ -127,17 +122,21 @@ class ConnectionThread(threading.Thread):
         self.connection = connection
 
     def run(self):
-        self.connection.channel: paramiko.Channel = self.transport.accept(20)
-        self.server.wait_for_shell.wait(10)
+        self.connection.channel: paramiko.Channel = self.transport.accept(30)
+        if not self.connection.channel:
+            logger.debug("Client %s timed out, closing", self.connection.id)
+            self.connection.kill()
+            return
+        self.server.wait_for_shell.wait(60)
         if not self.server.wait_for_shell.is_set():
-            logger.debug("Client %s never requested a shell, closing", id(self.client))
+            logger.debug("Client %s never requested a shell, closing", self.connection.id)
             self.connection.kill()
             return
 
-        connections[id(self.client)] = self.connection
+        connections[self.connection.id] = self.connection
 
         if not is_username_known(self.connection.server.username):
-            logger.info("Client %s used an invalid team code, therefore it is being killed.", id(self.client))
+            logger.info("Client %s used an invalid team code, therefore it is being killed.", self.connection.id)
             self.connection.channel.send("*********\r\n"
                                          f"  Unknown team code: {self.connection.server.username}. "
                                          f"Please use a valid code as a username, followed by : and the challenge name"
@@ -148,7 +147,7 @@ class ConnectionThread(threading.Thread):
             return
 
         if not self.connection.challenge:
-            logger.info("Client %s did not provide a challenge, therefore it is being killed.", id(self.client))
+            logger.info("Client %s did not provide a challenge, therefore it is being killed.", self.connection.id)
             self.connection.channel.send("*********\r\n"
                                          "No challenge was provided.\r\n"
                                          "Please set a challenge by appending the username with ':CHALLENGE_NAME'.\r\n"
@@ -159,7 +158,7 @@ class ConnectionThread(threading.Thread):
             return
 
         if not is_challenge_known(self.connection.challenge):
-            logger.info("Client %s provided an invalid challenge, therefore it is being killed.", id(self.client))
+            logger.info("Client %s provided an invalid challenge, therefore it is being killed.", self.connection.id)
             self.connection.channel.send("*********\r\n"
                                          f"Challenge not found: {self.connection.challenge}.\r\n"
                                          "Please set a valid challenge by appending the username "
@@ -184,25 +183,25 @@ class ConnectionThread(threading.Thread):
             self.connection.channel.send("*********\r\n"
                                          "  Our apologies. Your challenge server never came up."
                                          "  This could be caused by increased load or a backend issue.\r\n"
-                                         f"  Please notify the event organizers with this code: {id(self.client)}\r\n"
+                                         f"  Please notify the event organizers with this code: {self.connection.id}\r\n"
                                          "*********\r\n")
             self.connection.kill()
             return
 
         try:
             logger.debug("Creating proxy to %s:%s, with username %s (client: %s)",
-                         backend_res.ssh_hostname, backend_res.ssh_port, backend_res.ssh_username, id(self.client))
+                         backend_res.ssh_hostname, backend_res.ssh_port, backend_res.ssh_username, self.connection.id)
             self.connection.backend = create_proxy_to_backend_and_forward(backend_res, self.connection)
         except Exception:
-            logger.error("Failed to create connection to backend (proxy) for client %s", id(self.client), exc_info=1)
+            logger.error("Failed to create connection to backend (proxy) for client %s", self.connection.id, exc_info=1)
             self.connection.channel.send("*********\r\n"
                                          "  Could not create connection due to a backend error.\r\n"
-                                         f"  Please notify the event organizers with this code: {id(self.client)}\r\n"
+                                         f"  Please notify the event organizers with this code: {self.connection.id}\r\n"
                                          "*********\r\n")
             self.connection.kill()
             return
 
-        logger.debug("Listening from client %s to proxy", id(self.client))
+        logger.debug("Listening from client %s to proxy", self.connection.id)
         while self.connection.is_alive():
             try:
                 recv = self.connection.channel.recv(1024)

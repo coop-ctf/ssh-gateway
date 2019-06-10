@@ -22,7 +22,7 @@ class SSHConnectionListRoute:
             conn: ssh_server.ServerConnection = conn
             if conn.is_alive():
                 connections.append({
-                    "id": id(conn.client),
+                    "id": conn.id,
                     "last_active": datetime.datetime.utcnow().timestamp() - conn.last_active.timestamp(),
                     "username": conn.server.username,
                     "client_addr": f"{conn.addr[0]}:{conn.addr[1]}",
