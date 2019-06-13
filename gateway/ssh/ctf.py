@@ -50,7 +50,8 @@ class CTF:
         "bufferoverflow1": "momothereal/ctf-reverse-c-buffer-overflow-variable",
         "bufferoverflow2": "momothereal/ctf-reverse-c-buffer-overflow-function",
         "seestring": "momothereal/ctf-reverse-c-strings",
-        "jackofalltrades": "momothereal/ctf-reverse-py-jack-of-all-trades"
+        "jackofalltrades": "momothereal/ctf-reverse-py-jack-of-all-trades",
+        "tcp_madness": "momothereal/ctf-reverse-tcp-madness"
     }
 
     @staticmethod
