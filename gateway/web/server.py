@@ -1,11 +1,13 @@
+import base64
 import datetime
 import logging
+from typing import Optional
 
 import falcon
 import waitress
 from kubernetes.client import V1Pod, V1PodList
 
-from gateway.ssh import server as ssh_server, kube
+from gateway.ssh import server as ssh_server, kube, ctf
 
 logger = logging.getLogger("gateway.web")
 
@@ -42,6 +44,11 @@ class SSHConnectionListRoute:
 
 class SSHConnectionRoute:
     def on_delete(self, req, resp, conn_id):
+        user = get_auth(req)
+        if user != "admin" and (not user or user.lower() != team.lower()):
+            resp.media = {"login": False}
+            return
+
         connection: ssh_server.ServerConnection = ssh_server.connections.get(conn_id)
         if not connection:
             resp.status = falcon.HTTP_NOT_FOUND
@@ -86,6 +93,11 @@ class PodRoute:
         }
 
     def on_delete(self, req, resp, team, challenge):
+        user = get_auth(req)
+        if user != "admin" and (not user or user.lower() != team.lower()):
+            resp.media = {"login": False}
+            return
+
         client: kube.KubeClient = kube.KubeClient.get()
         pod: V1Pod = client.get_pod(team=team, challenge=challenge)
         if not pod:
@@ -101,6 +113,28 @@ class PodRoute:
             return
 
         resp.media = {"success": True}
+
+
+def get_auth(req) -> Optional[str]:
+    """
+    Checks login info from headers and returns the username if login succeeded
+    """
+    token_header = req.get_header("Authorization")
+    if not token_header:
+        return None
+    try:
+        decoded = base64.decodebytes(token_header.encode()).decode("utf-8").strip()
+
+    except:
+        return None
+
+    split = decoded.split(":", 1)
+    if len(split) != 2:
+        return None
+    username, password = split
+    logger.debug("Checking password", username, password)
+    if ctf.CTF.check_password(username, password):
+        return ctf.CTF.capitalize_team_name(username)
 
 
 def run_web_server(ip_address: str, port: int):
