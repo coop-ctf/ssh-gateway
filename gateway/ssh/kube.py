@@ -5,7 +5,6 @@ from time import sleep
 from typing import Optional
 
 from kubernetes import client, config
-from kubernetes.config import ConfigException
 
 logger = logging.getLogger("gateway.kube")
 
@@ -22,7 +21,7 @@ class KubeClient:
 
     def create_pod(self, name: str, image: str, team: str, challenge: str) -> Optional[client.V1Pod]:
         try:
-            pod = self.api.read_namespaced_pod(name=f"{name}-p", namespace="default")
+            pod = self.api.read_namespaced_pod(name=f"{name}-p", namespace="ctf")
             if pod:
                 return pod
         except:
@@ -32,22 +31,25 @@ class KubeClient:
             container = client.V1Container(
                 name=f"{name}-c",
                 image=image,
-                image_pull_policy="Never",
-                env=[
-                    client.V1EnvVar(name="CTF_TEAM", value=team),
-                    client.V1EnvVar(name="CTF_CHALLENGE", value=challenge)
-                ]
+                image_pull_policy="Never"
             )
             spec = client.V1PodSpec(containers=[container])
-            metadata = client.V1ObjectMeta(name=f"{name}-p")
+            metadata = client.V1ObjectMeta(
+                name=f"{name}-p",
+                labels={
+                    "ctf_team": team,
+                    "ctf_challenge": challenge
+                }
+            )
             pod = client.V1Pod(metadata=metadata, spec=spec)
-            return self.api.create_namespaced_pod(namespace="default", body=pod)
+            return self.api.create_namespaced_pod(namespace="ctf", body=pod)
         except Exception as e:
             logger.error(f"Error while creating pod {name}", exc_info=e)
             return None
 
     def wait_until_pod_has_ip(self, pod: client.V1Pod, timeout_s: float) -> Optional[str]:
         max_time = datetime.now().timestamp() + timeout_s
+        logger.debug("Waiting for pod %s to be available", pod.metadata.name)
         try:
             while True:
                 if max_time < datetime.now().timestamp():
@@ -63,6 +65,7 @@ class KubeClient:
 
     def wait_until_pod_port_available(self, pod: client.V1Pod, pod_ip: str, port: int, timeout_s: float) -> bool:
         max_time = datetime.now().timestamp() + timeout_s
+        logger.debug("Waiting for port %s:%s on %s to be available", pod_ip, port, pod.metadata.name)
         try:
             while True:
                 if max_time < datetime.now().timestamp():
@@ -75,13 +78,26 @@ class KubeClient:
             logger.error(f"Error while waiting for pod port {pod.metadata.name} -> {port}", exc_info=e)
             return False
 
+    def get_pod(self, team: str = None, challenge: str = None) -> client.V1Pod:
+        pod_name = "chal-{}-{}-p".format(challenge.replace("_", ""), team).lower()
+        namespace = "ctf"
+        try:
+            return self.api.read_namespaced_pod(pod_name, namespace)
+        except:
+            return None
+
 
 def connect_to_kube() -> Optional[KubeClient]:
     try:
         config.load_incluster_config()
-    except ConfigException as e:
-        logger.warning("Cannot connect to Kubernetes cluster", exc_info=e)
-        return None
+    except Exception as e:
+        logger.warning("Cannot connect to Kubernetes cluster, trying kubectl...", exc_info=e)
+        try:
+            config.load_kube_config()
+        except Exception as e:
+            logger.warning("Cannot connect to Kubernetes cluster via kubectl", exc_info=e)
+            return None
+        logger.info("Connected via kubectl instead of in-cluster. Dev mode?")
 
     api = client.CoreV1Api()
     KubeClient.INSTANCE = KubeClient(api)
